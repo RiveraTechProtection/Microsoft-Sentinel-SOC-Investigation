@@ -1,0 +1,28 @@
+// Controlled simulation using inline authentication events; no live telemetry is queried.
+let AuthenticationLogs = datatable(
+    TimeGenerated:datetime,
+    Account:string,
+    SourceIP:string,
+    Result:string
+)
+[
+    datetime(2026-11-20 10:00:00), "admin", "203.0.113.50", "Failed",
+    datetime(2026-11-20 10:01:00), "admin", "203.0.113.50", "Failed",
+    datetime(2026-11-20 10:02:00), "admin", "203.0.113.50", "Failed",
+    datetime(2026-11-20 10:03:00), "admin", "203.0.113.50", "Failed",
+    datetime(2026-11-20 10:04:00), "admin", "203.0.113.50", "Failed",
+    datetime(2026-11-20 10:05:00), "admin", "203.0.113.50", "Success",
+    datetime(2026-11-20 10:06:00), "employee", "192.0.2.10", "Success"
+];
+AuthenticationLogs
+| summarize
+    FailedAttempts = countif(Result == "Failed"),
+    SuccessfulLogins = countif(Result == "Success"),
+    FirstFailure = minif(TimeGenerated, Result == "Failed"),
+    LastFailure = maxif(TimeGenerated, Result == "Failed"),
+    FirstSuccess = minif(TimeGenerated, Result == "Success")
+    by Account, SourceIP
+| where FailedAttempts >= 5 and SuccessfulLogins >= 1
+| where FirstSuccess > LastFailure
+| extend TimeDifference = datetime_diff("minute", FirstSuccess, FirstFailure)
+| where TimeDifference <= 5
